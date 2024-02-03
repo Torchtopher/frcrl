@@ -7,3 +7,6 @@ To run, just run
 Dependencies:
 `pip install sb3-contrib`
 `pip install stable-baselines3[extra]`
+
+**TODOs**:
+- Make amplified speaker and speaker different actions

@@ -1,0 +1,27 @@
+amp_activation_time: 13
+
+robots:
+  # human player for activating amp:
+  # - amp_cycle_time: 900
+  #   speaker_cycle_time: 900
+  #   can_score_amp: false
+  #   can_score_speaker: false
+  
+  # us
+  - amp_cycle_time: 12
+    speaker_cycle_time: 12
+    can_score_amp: true
+    can_score_speaker: true
+  
+  # kitbot
+  - amp_cycle_time: 20
+    speaker_cycle_time: 20
+    can_score_amp: false
+    can_score_speaker: true
+  
+  # everybot
+  - amp_cycle_time: 18
+    speaker_cycle_time: 19
+    can_score_amp: true
+    can_score_speaker: true
+

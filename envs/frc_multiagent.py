@@ -31,12 +31,12 @@ class FRC(gym.Env):
 
     metadata = {'render.modes': ['text']}
 
-    def __init__(self, number_of_robots: int = 3,
-                 step_cost: float = -0.1, amp_reward: float = 1.0, speaker_reward: float = 2.0,
+    def __init__(self, robots=None,
+                 step_cost: float = -0.11, amp_reward: float = 1.0, speaker_reward: float = 2.0,
                  amped_speaker_reward: float = 5.0, max_steps: int = 120):
-
-        self.number_of_robots = number_of_robots
-        self.robots = [Robot(id=i, amp_cycle_t=10+i*2, speaker_cycle_t=10+i*2, can_score_amp=True, can_score_speaker=True) for i in range(number_of_robots)]
+        assert robots is not None, "Must pass in robots"
+        self.number_of_robots = len(robots)
+        self.robots = robots
         self.amp_time_left = 0
         self.notes_in_amp = 0
 
@@ -45,9 +45,9 @@ class FRC(gym.Env):
         self._amp_reward = amp_reward
         self._speaker_reward = speaker_reward
         self._amped_speaker_reward = amped_speaker_reward
-        self._max_steps = max_steps * number_of_robots
-        self._actions_taken = {}
-        for i in range(number_of_robots):
+        self._max_steps = max_steps * self.number_of_robots
+        self._actions_taken = {"amp_active": []}
+        for i in range(self.number_of_robots):
             self._actions_taken[i] = []
 
         self._total_episode_reward = None
@@ -121,13 +121,15 @@ class FRC(gym.Env):
 
         # Choose the agent's location uniformly at random
         self._step_count = 0
-        self._actions_taken = {}
+        self._actions_taken = {"amp_active": []}
         for i in range(self.number_of_robots):
             self._actions_taken[i] = []
+        
         self._total_episode_reward = 0 
         self.amp_time_left = 0
         self.notes_in_amp = 0
-        self.robots = [Robot(id=i, amp_cycle_t=10+i*2, speaker_cycle_t=10+i*2, can_score_amp=True, can_score_speaker=True) for i in range(self.number_of_robots)]
+        for robot in self.robots:
+            robot.time_spent_cycling = 0
 
         observation = self._get_obs()
         info = self._get_info()
@@ -149,7 +151,8 @@ class FRC(gym.Env):
         # Map the action (element of {0,1,2,3}) to the direction we walk in
         action_str = self._action_names[action]
         self._actions_taken[self._step_count % self.number_of_robots].append(action_str)
-        self._actions_taken["amp_active"] = self.amp_time_left
+        if self._step_count % self.number_of_robots == 0:
+            self._actions_taken["amp_active"].append(self.amp_time_left)
         current_robot = self.get_current_robot()
         assert id(current_robot) == id(self.robots[self._step_count % self.number_of_robots]), "Robot is being copied, not referenced!"
         if action_str == 'wait':
@@ -157,15 +160,13 @@ class FRC(gym.Env):
             reward = 0
         elif action_str == 'cycle':
             current_robot.time_spent_cycling += 1
-            if current_robot.time_spent_cycling > max(current_robot.SPEAKER_CYCLE_T, current_robot.AMP_CYCLE_T):
-                reward = self._step_cost
-            else:
-                reward = 0
+            reward = 0
         elif action_str == 'score_amp':
 
             #if self.CAN_SCORE_AMP and self.time_spent_cycling >= self.AMP_CYCLE_T:
             reward = self._amp_reward
-            self.notes_in_amp += 1
+            if self.amp_time_left <= 2 * self.number_of_robots:
+                self.notes_in_amp += 1
             current_robot.time_spent_cycling = 0
 
         elif action_str == 'score_speaker':
