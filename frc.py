@@ -5,7 +5,6 @@ import numpy as np
 # spaces
 from gymnasium import spaces
 
-
 class FRC(gym.Env):
     """
     FRC2024 environment involve a grid world, in which multiple robots attempt to maximize points
