@@ -4,7 +4,7 @@ import numpy as np
 from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
 from sb3_contrib.common.wrappers import ActionMasker
 from sb3_contrib.ppo_mask import MaskablePPO
-from frc import FRC
+from envs.frc import FRC
 
 from stable_baselines3 import DQN
 

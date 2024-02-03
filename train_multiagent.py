@@ -4,7 +4,7 @@ import numpy as np
 from sb3_contrib.common.maskable.policies import MaskableActorCriticPolicy
 from sb3_contrib.common.wrappers import ActionMasker
 from sb3_contrib.ppo_mask import MaskablePPO
-from frc_multiagent import FRC
+from envs.frc_multiagent import FRC, Robot
 
 from stable_baselines3 import DQN
 
@@ -17,8 +17,20 @@ def mask_fn(env: FRC) -> np.ndarray:
     #print(env._get_obs())
     return env.action_mask()
 
-
 env = FRC()
+
+robots = []
+for i in range(3):
+    # Get user input for robot's cycle times and abilities
+    # id: int, amp_cycle_t: int, speaker_cycle_t: int, can_score_amp: bool, can_score_speaker: bool
+    id = i + 1
+    amp_cycle_t = input(f"Enter cycle time for robot {id} to score amp: ")
+    speaker_cycle_t = input(f"Enter cycle time for robot {id} to score speaker: ")
+    can_score_amp = input(f"Can robot {id} score amp? (y/n): ")
+    can_score_speaker = input(f"Can robot {id} score speaker? (y/n): ")
+    robots.append(Robot(id, int(amp_cycle_t), int(speaker_cycle_t), can_score_amp != "n", can_score_speaker != "n"))
+    
+
 # vectorized environments allow for batched actions
 env = ActionMasker(env, mask_fn)  # Wrap to enable masking
 
