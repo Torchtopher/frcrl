@@ -10,3 +10,5 @@ Dependencies:
 
 **TODOs**:
 - Make amplified speaker and speaker different actions
+- Add human player bot back
+- Beat 66 for current bot config
