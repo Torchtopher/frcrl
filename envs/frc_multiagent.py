@@ -52,14 +52,15 @@ class FRC(gym.Env):
 
         self._total_episode_reward = None
 
-        # action space is, [wait,  move_cycle, score_amp, score_speaker, activate_amp]
-        self.action_space = spaces.Discrete(5)
+        # action space is, [wait,  move_cycle, score_amp, score_speaker, activate_amp, score_speaker_amped]
+        self.action_space = spaces.Discrete(6)
         self._action_ids = {
             'wait': 0,
             'cycle': 1,
             'score_amp': 2,
             'score_speaker': 3,
             'activate_amp': 4,
+            'score_speaker_amped': 5
         }
         # invert the dictionary
         self._action_names = {v: k for k, v in self._action_ids.items()}
@@ -83,13 +84,21 @@ class FRC(gym.Env):
     def action_mask(self):
         robot = self.get_current_robot()
         # mask is a list of 1s and 0s, where 1 means the action is allowed
-        mask = [0, 1, 1, 1, 1]
-        # action space is, [wait,  move_cycle, score_amp, score_speaker, activate_amp]
+        mask = [0, 1, 1, 1, 1, 0]
+        # action space is, [wait,  move_cycle, score_amp, score_speaker, activate_amp, score_speaker_amped]
         if robot.time_spent_cycling < robot.SPEAKER_CYCLE_T or not robot.CAN_SCORE_SPEAKER:
             mask[3] = 0
         if robot.time_spent_cycling < robot.AMP_CYCLE_T or not robot.CAN_SCORE_AMP:
             mask[2] = 0
         if self.notes_in_amp != 2:
+            mask[4] = 0
+        if self.amp_time_left > 0 and robot.time_spent_cycling >= robot.SPEAKER_CYCLE_T and robot.CAN_SCORE_SPEAKER:
+            mask[5] = 1
+            # set all other actions to 0
+            mask[0] = 0
+            mask[1] = 0
+            mask[2] = 0
+            mask[3] = 0
             mask[4] = 0
         return mask
 
@@ -173,20 +182,23 @@ class FRC(gym.Env):
             assert current_robot.CAN_SCORE_SPEAKER, "Speaker cannot be scored at this time"
             assert current_robot.time_spent_cycling >= current_robot.SPEAKER_CYCLE_T, "Speaker cannot be scored at this time"
             #if self.CAN_SCORE_SPEAKER and self.time_spent_cycling >= self.SPEAKER_CYCLE_T:
-            if self.amp_time_left > 0:
-                reward = self._amped_speaker_reward
-                #print("AMPED SPEAKER SCORED!!")
-            else:
-                reward = self._speaker_reward
-
+            reward = self._speaker_reward
             current_robot.time_spent_cycling = 0
 
         elif action_str == 'activate_amp':
             #if self.notes_in_amp == 2:
             self.notes_in_amp = 0
             self.amp_time_left = 13 * self.number_of_robots
-            reward = self._amp_reward
+            current_robot.time_spent_cycling += 1
+            #reward = self._amp_reward
+            reward = 0
             #print("AMP ACTIVATED!!")
+        elif action_str == 'score_speaker_amped':
+            assert current_robot.CAN_SCORE_SPEAKER, "Speaker cannot be scored at this time"
+            assert current_robot.time_spent_cycling >= current_robot.SPEAKER_CYCLE_T, "Speaker cannot be scored at this time"
+            assert self.amp_time_left > 0, "Amp must be active to score amped speaker"
+            reward = self._amped_speaker_reward
+            current_robot.time_spent_cycling = 0
         else:
             raise ValueError(f"Invalid action: {action}")
         

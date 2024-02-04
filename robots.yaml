@@ -21,7 +21,7 @@ robots:
   
   # everybot
   - amp_cycle_time: 18
-    speaker_cycle_time: 19
+    speaker_cycle_time: 18
     can_score_amp: true
     can_score_speaker: true
 

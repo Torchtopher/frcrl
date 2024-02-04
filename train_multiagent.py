@@ -14,9 +14,12 @@ def mask_fn(env: FRC) -> np.ndarray:
     # Do whatever you'd like in this function to return the action mask
     # for the current env. In this example, we assume the env has a
     # helpful method we can rely on.
-    #print(env._actions_taken)
-    #print(env._action_mask())
-    #print(env._get_obs())
+
+    #if env.action_mask()[5] == 1:
+    #    print("Masking")
+    #    print(env._actions_taken)
+    #    print(env.action_mask())
+    #    print(env._get_obs())
     return env.action_mask()
 
 
@@ -38,9 +41,10 @@ env = ActionMasker(env, mask_fn)  # Wrap to enable masking
 # a new action_mask_fn kwarg, as it did in an earlier draft.
 # faster on cpu lmao
 # (probably due to gpu copy times)
-model = MaskablePPO("MultiInputPolicy", env, verbose=1, device="cpu")
+model = MaskablePPO("MultiInputPolicy", env, verbose=1, device="cpu"
+                    )
 # we want to overfit because we are only optimzing for one specific environment
-model.learn(total_timesteps=150_000)
+model.learn(total_timesteps=300_000)
 print("Done training")
 vec_env = model.get_env()
 obs = vec_env.reset()
