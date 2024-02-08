@@ -44,7 +44,7 @@ env = ActionMasker(env, mask_fn)  # Wrap to enable masking
 model = MaskablePPO("MultiInputPolicy", env, verbose=1, device="cpu"
                     )
 # we want to overfit because we are only optimzing for one specific environment
-model.learn(total_timesteps=300_000)
+model.learn(total_timesteps=150_000)
 print("Done training")
 vec_env = model.get_env()
 obs = vec_env.reset()

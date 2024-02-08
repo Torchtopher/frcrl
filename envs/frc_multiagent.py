@@ -46,6 +46,7 @@ class FRC(gym.Env):
         self._speaker_reward = speaker_reward
         self._amped_speaker_reward = amped_speaker_reward
         self._max_steps = max_steps * self.number_of_robots
+        self.notes_scored_while_amp_active = 0
         self._actions_taken = {"amp_active": []}
         for i in range(self.number_of_robots):
             self._actions_taken[i] = []
@@ -69,8 +70,9 @@ class FRC(gym.Env):
         self.observation_space = spaces.Dict({
                                         # global states
                                         "time_left": spaces.Box(low=0, high=self._max_steps+1, shape=(1,), dtype=np.int32),
-                                        "amp_time_left": spaces.Box(low=0, high=13 * self.number_of_robots, shape=(1,), dtype=np.int32),
-                                        "notes_in_amp": spaces.Discrete(3)
+                                        "amp_time_left": spaces.Box(low=0, high=14 * self.number_of_robots, shape=(1,), dtype=np.int32),
+                                        "notes_in_amp": spaces.Discrete(3),
+                                        "notes_scored_while_amp_active": spaces.Box(low=0, high=10, shape=(1,), dtype=np.int32),
                                     })
         for robot in self.robots: 
             self.observation_space.spaces[f"time_spent_cycling_{robot.id}"] = spaces.Box(low=0, high=max_steps, shape=(1,), dtype=np.int32)
@@ -84,7 +86,7 @@ class FRC(gym.Env):
     def action_mask(self):
         robot = self.get_current_robot()
         # mask is a list of 1s and 0s, where 1 means the action is allowed
-        mask = [0, 1, 1, 1, 1, 0]
+        mask = [0, 1, 1, 1, 0, 0]
         # action space is, [wait,  move_cycle, score_amp, score_speaker, activate_amp, score_speaker_amped]
         if robot.time_spent_cycling < robot.SPEAKER_CYCLE_T or not robot.CAN_SCORE_SPEAKER:
             mask[3] = 0
@@ -92,7 +94,7 @@ class FRC(gym.Env):
             mask[2] = 0
         if self.notes_in_amp != 2:
             mask[4] = 0
-        if self.amp_time_left > 0 and robot.time_spent_cycling >= robot.SPEAKER_CYCLE_T and robot.CAN_SCORE_SPEAKER:
+        if (self.amp_time_left > 0 or self.notes_in_amp == 2) and robot.time_spent_cycling >= robot.SPEAKER_CYCLE_T and robot.CAN_SCORE_SPEAKER:
             mask[5] = 1
             # set all other actions to 0
             mask[0] = 0
@@ -112,7 +114,8 @@ class FRC(gym.Env):
         obs = {
             "time_left": np.array([self._max_steps - self._step_count], dtype=np.int32),
             "amp_time_left": np.array([self.amp_time_left], dtype=np.int32),
-            "notes_in_amp": np.array([self.notes_in_amp], dtype=np.int32)
+            "notes_in_amp": np.array([self.notes_in_amp], dtype=np.int32),
+            "notes_scored_while_amp_active": np.array([self.notes_scored_while_amp_active], dtype=np.int32)
         }
         for robot in self.robots: 
             obs[f"time_spent_cycling_{robot.id}"] = np.array([robot.time_spent_cycling], dtype=np.int32)
@@ -133,7 +136,7 @@ class FRC(gym.Env):
         self._actions_taken = {"amp_active": []}
         for i in range(self.number_of_robots):
             self._actions_taken[i] = []
-        
+        self.notes_scored_while_amp_active = 0
         self._total_episode_reward = 0 
         self.amp_time_left = 0
         self.notes_in_amp = 0
@@ -158,6 +161,8 @@ class FRC(gym.Env):
 
     def step(self, action):
         # Map the action (element of {0,1,2,3}) to the direction we walk in
+        if self.notes_scored_while_amp_active > 0 and self.amp_time_left == 0:
+            self.notes_scored_while_amp_active = 0
         action_str = self._action_names[action]
         self._actions_taken[self._step_count % self.number_of_robots].append(action_str)
         if self._step_count % self.number_of_robots == 0:
@@ -188,7 +193,7 @@ class FRC(gym.Env):
         elif action_str == 'activate_amp':
             #if self.notes_in_amp == 2:
             self.notes_in_amp = 0
-            self.amp_time_left = 13 * self.number_of_robots
+            self.amp_time_left = 14 * self.number_of_robots
             current_robot.time_spent_cycling += 1
             #reward = self._amp_reward
             reward = 0
@@ -196,15 +201,24 @@ class FRC(gym.Env):
         elif action_str == 'score_speaker_amped':
             assert current_robot.CAN_SCORE_SPEAKER, "Speaker cannot be scored at this time"
             assert current_robot.time_spent_cycling >= current_robot.SPEAKER_CYCLE_T, "Speaker cannot be scored at this time"
-            assert self.amp_time_left > 0, "Amp must be active to score amped speaker"
-            reward = self._amped_speaker_reward
+            #assert self.amp_time_left > 0, "Amp must be active to score amped speaker"
+            assert self.notes_in_amp == 2 or self.amp_time_left > 0, "Amp must have 2 notes to score amped speaker"
+            if self.notes_in_amp == 2:
+                self.notes_in_amp = 0
+                self.amp_time_left = 14 * self.number_of_robots
+            self.notes_scored_while_amp_active += 1
+            current_robot.time_spent_cycling += 1
+            reward = self._amped_speaker_reward * (2 ** (self.notes_scored_while_amp_active - 1))
             current_robot.time_spent_cycling = 0
         else:
             raise ValueError(f"Invalid action: {action}")
         
         self._step_count += 1
         terminated = self._step_count >= self._max_steps
-        self._total_episode_reward += reward
+        if reward == 5 or reward == 10 or reward == 15:
+            self._total_episode_reward += 5
+        else:
+            self._total_episode_reward += reward
         if self.amp_time_left > 0:
             self.amp_time_left -= 1
         
